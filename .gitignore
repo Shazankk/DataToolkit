@@ -129,7 +129,6 @@ dmypy.json
 .pyre/
 
 #Pyrc 
-.pypirc/
 .pypirc
 
 # pytype static type analyzer
