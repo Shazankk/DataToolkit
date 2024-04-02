@@ -27,7 +27,6 @@ Install required libraries:
 Ensure you have pip installed and then run:
 
 ```   sh
-      Copy code
       pip install -r requirements.txt
 ```
 
