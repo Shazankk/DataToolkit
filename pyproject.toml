@@ -9,6 +9,7 @@ description = "From SQL queries to pandas DataFrames: DataToolkit makes it easy 
 authors = [{name = "Shashank Goud", email = "shashaankgoud@gmail.com"}]
 readme = "README.md"
 license = {file = "LICENSE"}
+requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -22,37 +23,20 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-urls = {
-    "Homepage": "https://github.com/Shazankk/DataToolkit"
-}
+urls.Homepage = "https://github.com/Shazankk/DataToolkit"
+urls.Repository = "https://github.com/Shazankk/DataToolkit"
 
-[project.urls]
-repository = "https://github.com/Shazankk/DataToolkit"
+dependencies = [
+    "pandas>=1.2.0",
+    "psycopg2-binary>=2.8.6",
+    "openpyxl>=3.0.5",
+]
 
 [project.optional-dependencies]
-extras = [
-    "pandas>=1.2.0",
-    "psycopg2-binary>=2.8.6",
-    "openpyxl>=3.0.5",
-]
+# Specify any optional dependencies here; rename "extras" if you have specific sets of optional dependencies
+# Example:
+# dev = ["pytest", "flake8"]
 
 [tool.setuptools]
-py-modules = ["DataToolkit"]
-
-[project.scripts]
-# If your package includes any scripts or executables, define them here. For example:
-# my_script = "module_name:main_func"
-
-[project.dependencies]
-requires = [
-    "pandas>=1.2.0",
-    "psycopg2-binary>=2.8.6",
-    "openpyxl>=3.0.5",
-]
-
-[project.python-requires]
-python = ">=3.8"
-
-[tool.setuptools]
-packages = ["DataToolkit"]
-package-dir = {"" = "."}  # Adjust this if your package directory structure is different
+packages = ["data_toolkit"]
+package-dir = {"" = "src"}  # Adjust if your package is located in a different directory
