@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='Query2DataFrame',
-    version='0.1.4',
+    name='DataToolkit',
+    version='0.2.0',
     author='Shashank Goud',
     author_email='shashaankgoud@gmail.com',
     description=('From SQL queries to pandas DataFrames: Query2DataFrame makes it easy to retrieve, '
@@ -11,7 +11,7 @@ setup(
     long_description_content_type='text/markdown',
     url='https://github.com/Shazankk/Query2DataFrame',
     packages=find_packages(),
-    py_modules=['Query2DataFrame'],
+    py_modules=['DataToolkit'],
     install_requires=[
         'pandas>=1.2.0',
         'psycopg2-binary>=2.8.6',
