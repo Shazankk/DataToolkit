@@ -1,0 +1,9 @@
+{
+    "database": {
+      "user": "your_username",
+      "password": "your_password",
+      "host": "database_host",
+      "database": "your_database",
+      "sslmode": "require"
+    }
+  }  
