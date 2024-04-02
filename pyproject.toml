@@ -3,9 +3,9 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "DataToolkit"
+name = "querypanda"
 version = "0.2.0"
-description = "From SQL queries to pandas DataFrames: DataToolkit makes it easy to retrieve, aggregate, and save data from PostgreSQL, enhancing data analysis and machine learning projects."
+description = "From SQL queries to pandas DataFrames: QueryPanda makes it easy to retrieve, aggregate, and save data from PostgreSQL, enhancing data analysis and machine learning projects."
 authors = [{name = "Shashank Goud", email = "shashaankgoud@gmail.com"}]
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -23,8 +23,8 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-urls.Homepage = "https://github.com/Shazankk/DataToolkit"
-urls.Repository = "https://github.com/Shazankk/DataToolkit"
+urls.Homepage = "https://github.com/Shazankk/QueryPanda"
+urls.Repository = "https://github.com/Shazankk/QueryPanda"
 
 dependencies = [
     "pandas>=1.2.0",
@@ -38,5 +38,5 @@ dependencies = [
 # dev = ["pytest", "flake8"]
 
 [tool.setuptools]
-packages = ["data_toolkit"]
+packages = ["querypanda"]
 package-dir = {"" = "src"}  # Adjust if your package is located in a different directory
