@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "DataToolkit"
+version = "0.2.0"
+description = "From SQL queries to pandas DataFrames: DataToolkit makes it easy to retrieve, aggregate, and save data from PostgreSQL, enhancing data analysis and machine learning projects."
+authors = [{name = "Shashank Goud", email = "shashaankgoud@gmail.com"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+urls = {
+    "Homepage": "https://github.com/Shazankk/DataToolkit"
+}
+
+[project.urls]
+repository = "https://github.com/Shazankk/DataToolkit"
+
+[project.optional-dependencies]
+extras = [
+    "pandas>=1.2.0",
+    "psycopg2-binary>=2.8.6",
+    "openpyxl>=3.0.5",
+]
+
+[tool.setuptools]
+py-modules = ["DataToolkit"]
+
+[project.scripts]
+# If your package includes any scripts or executables, define them here. For example:
+# my_script = "module_name:main_func"
+
+[project.dependencies]
+requires = [
+    "pandas>=1.2.0",
+    "psycopg2-binary>=2.8.6",
+    "openpyxl>=3.0.5",
+]
+
+[project.python-requires]
+python = ">=3.8"
+
+[tool.setuptools]
+packages = ["DataToolkit"]
+package-dir = {"" = "."}  # Adjust this if your package directory structure is different
