@@ -11,6 +11,7 @@ setup(
     long_description_content_type='text/markdown',
     url='https://github.com/Shazankk/Query2DataFrame',
     packages=find_packages(),
+    py_modules=['data_toolkit'],
     install_requires=[
         'pandas>=1.2.0',
         'psycopg2-binary>=2.8.6',
