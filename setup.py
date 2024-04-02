@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='Query2DataFrame',
-    version='0.1.2',
+    version='0.1.3',
     author='Shashank Goud',
     author_email='shashaankgoud@gmail.com',
     description=('From SQL queries to pandas DataFrames: Query2DataFrame makes it easy to retrieve, '
