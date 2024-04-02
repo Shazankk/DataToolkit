@@ -1,5 +1,6 @@
 import os
 import glob
+import time
 import pandas as pd
 import psycopg2
 import psycopg2.extras
@@ -22,13 +23,17 @@ def fetch_data_from_db(conn_string: str, query: str) -> pd.DataFrame:
     """
     Fetch data from the database and return a pandas DataFrame.
     """
+    start_time = time.time()
     try:
         with psycopg2.connect(conn_string) as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
                 cur.execute(query)
                 result = cur.fetchall()
                 columns = [desc[0] for desc in cur.description]
-                return pd.DataFrame(result, columns=columns)
+                df = pd.DataFrame(result, columns=columns)
+        duration = time.time() - start_time
+        logging.info(f"Database fetch duration: {duration:.2f} seconds for query: {query}")
+        return df
     except Exception as e:
         logging.error(f"Error fetching data: {e}")
         return pd.DataFrame()
@@ -56,6 +61,7 @@ def save_data_with_checkpoint(df, filename, file_extension, start_time, end_time
     """
     Enhanced to handle transactional data saving and marking periods as complete in the checkpoint.
     """
+    io_start_time = time.time()
     # Attempt to save data, marking the start of the attempt in the checkpoint
     mark_period_start_in_checkpoint(start_time, save_location, complete=False)
 
@@ -71,6 +77,9 @@ def save_data_with_checkpoint(df, filename, file_extension, start_time, end_time
 
         logging.info(f"Data for period {start_time} to {end_time} successfully saved to {filename}.")
         
+        io_duration = time.time() - io_start_time
+        logging.info(f"File I/O duration: {io_duration:.2f} seconds for saving {filename}.")
+        
         # Mark the period as successfully completed in the checkpoint after saving
         mark_period_start_in_checkpoint(start_time, save_location, complete=True)
     except Exception as e:
@@ -80,13 +89,6 @@ def save_data_with_checkpoint(df, filename, file_extension, start_time, end_time
 def get_last_processed_and_status(save_location: str):
     """
     Retrieves the last processed period and its completion status from the checkpoint.
-
-    Parameters:
-    - save_location (str): The directory where the checkpoint file is stored.
-
-    Returns:
-    - tuple: A tuple containing the last processed datetime object and a boolean indicating completion status.
-             Returns (None, False) if no checkpoint is found.
     """
     checkpoint_path = os.path.join(save_location, 'checkpoint.pkl')
     if os.path.exists(checkpoint_path):
