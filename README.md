@@ -1,5 +1,6 @@
+# Query2Dataframe Project
 
-# Data Toolkit Project
+![Query2DataFrame Logo](<images/logo.webp>)
 
 ## Overview
 
