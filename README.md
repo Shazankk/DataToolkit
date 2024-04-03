@@ -1,4 +1,4 @@
-# Query2Dataframe Project
+# QueryPanda Project
 
 ![Query2DataFrame Logo](<images/logo.webp>)
 
@@ -20,8 +20,8 @@ To use this project, you need to have Python installed on your machine. It is re
 1. **Clone the repository:**
 
 ```   sh
-      git clone (https://github.com/Shazankk/Query2DataFrame)
-      cd Query2DataFrame
+      git clone (https://github.com/Shazankk/QueryPanda)
+      cd QueryPanda
 ```
 
 Install required libraries:
