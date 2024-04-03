@@ -11,8 +11,12 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict
 import pickle
 
-
+# Setup logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+stats = PerformanceStats
+# Flag to check if columns have been printed
+columns_printed = False
 
 def ensure_directory_exists(directory: str) -> None:
     """
@@ -22,36 +26,30 @@ def ensure_directory_exists(directory: str) -> None:
         logging.info(f"Creating directory: {directory}")
         os.makedirs(directory)
 
-def fetch_data_from_db(conn_string: str, query: str, stats: PerformanceStats) -> pd.DataFrame:
+def fetch_data_from_db(conn_string: str, query: str) -> pd.DataFrame:
     """
-    Fetch data from the database and return a pandas DataFrame. This function also updates 
-    performance statistics including the number of database queries made, the total number of rows fetched,
-    and the execution time for fetching the data.
-
-    Parameters:
-    - conn_string (str): The connection string for the database.
-    - query (str): The SQL query to execute.
-    - stats (PerformanceStats): An instance of PerformanceStats to track performance metrics.
-
-    Returns:
-    - pd.DataFrame: The fetched data as a pandas DataFrame.
+    Fetch data from the database and return a pandas DataFrame.
+    Also, prints the column names before fetching data, but only once.
     """
-    start_time = time.time()  # Begin timing for this operation
+    global columns_printed  # Use the global flag
+
     try:
         with psycopg2.connect(conn_string) as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
                 cur.execute(query)
-                stats.db_query_count += 1  # Increment database query count
-                result = cur.fetchall()
-                stats.db_rows_fetched += len(result)  # Update rows fetched
                 columns = [desc[0] for desc in cur.description]
+                
+                # Print column names only if they haven't been printed before
+                if not columns_printed:
+                    print("Columns:", columns)
+                    columns_printed = True  # Update flag to indicate columns have been printed
+                
+                result = cur.fetchall()
                 return pd.DataFrame(result, columns=columns)
     except Exception as e:
         logging.error(f"Error fetching data: {e}")
         return pd.DataFrame()
-    finally:
-        elapsed_time = time.time() - start_time  # Calculate elapsed time
-        stats.execution_time += elapsed_time  # Update execution time in stats
+
 
 def mark_period_start_in_checkpoint(start_time, save_location, complete):
     """
@@ -72,49 +70,30 @@ def mark_period_start_in_checkpoint(start_time, save_location, complete):
     with open(checkpoint_path, 'wb') as file:
         pickle.dump(checkpoint_data, file)
 
-def save_data_with_checkpoint(df, filename, file_extension, start_time, end_time, save_location, stats: PerformanceStats):
+def save_data_with_checkpoint(df, filename, file_extension, start_time, end_time, save_location):
     """
-    Enhanced to handle transactional data saving and marking periods as complete in the checkpoint,
-    with added performance statistics tracking for execution time and file I/O operations.
-    
-    Parameters:
-    - df (pd.DataFrame): The DataFrame to save.
-    - filename (str): The base name for the file to save the DataFrame to.
-    - file_extension (str): The file extension indicating the format to save the DataFrame as.
-    - start_time, end_time (datetime): The start and end time for the data period being saved.
-    - save_location (str): The directory path where the data file will be saved.
-    - stats (PerformanceStats): An instance of PerformanceStats to track performance metrics.
+    Enhanced to handle transactional data saving and marking periods as complete in the checkpoint.
     """
-    full_path = os.path.join(save_location, filename + '.' + file_extension)
-    operation_start_time = time.time()  # Start timing the entire operation
-
     # Attempt to save data, marking the start of the attempt in the checkpoint
     mark_period_start_in_checkpoint(start_time, save_location, complete=False)
 
     try:
-        # Save the data based on the specified file extension
         if file_extension == 'pkl':
-            df.to_pickle(full_path)
+            df.to_pickle(filename)
         elif file_extension == 'csv':
-            df.to_csv(full_path, index=False)
+            df.to_csv(filename, index=False)
         elif file_extension in ['xls', 'xlsx']:
-            df.to_excel(full_path, index=False)
+            df.to_excel(filename, index=False)
         else:
             raise ValueError(f"Unsupported file extension: {file_extension}")
+
+        logging.info(f"Data for period {start_time} to {end_time} successfully saved to {filename}.")
         
-        stats.file_write_count += 1
-        stats.bytes_written += os.path.getsize(full_path)  # Accurate bytes written
-
-        logging.info(f"Data for period {start_time} to {end_time} successfully saved to {full_path}.")
-
         # Mark the period as successfully completed in the checkpoint after saving
         mark_period_start_in_checkpoint(start_time, save_location, complete=True)
     except Exception as e:
+        # Handle saving exceptions: log error, potentially delete the incomplete file here
         logging.error(f"Failed to save data for period {start_time} to {end_time}: {e}")
-    finally:
-        operation_duration = time.time() - operation_start_time
-        stats.execution_time += operation_duration  # Update execution time in stats
-        logging.info(f"save_data_with_checkpoint execution time: {operation_duration:.2f} seconds.")
 
 def get_last_processed_and_status(save_location: str):
     """
@@ -205,15 +184,6 @@ def find_latest_period(save_location: str, file_extension: str) -> datetime:
 def generate_filename_based_on_aggregation(start_date: datetime, aggregation_frequency: str, save_location: str, file_extension: str) -> str:
     """
     Generates a filename based on the aggregation frequency and the start date of the data.
-
-    Parameters:
-    - start_date: The start datetime of the data interval being processed.
-    - aggregation_frequency: The frequency of data aggregation ('daily', 'weekly', 'monthly').
-    - save_location: The directory path where data files will be saved.
-    - file_extension: The file extension to use for the data file ('pkl', 'csv', 'xlsx').
-
-    Returns:
-    - The full path to the data file with the generated filename.
     """
     # Define the base name of the file
     base_filename = "data"
@@ -235,137 +205,126 @@ def generate_filename_based_on_aggregation(start_date: datetime, aggregation_fre
 
     return full_path
 
-def retrieve_dataset(conn_params: Dict[str, str], 
-                     query_template: str, 
-                     start_time: datetime, end_time: datetime,
-                     stats: PerformanceStats,
-                     fetch_frequency: str = '1H',
-                     save_location: Optional[str] = None, 
-                     file_extension: Optional[str] = None,
-                     aggregation_frequency: Optional[str] = None) -> pd.DataFrame:
+def retrieve_dataset(conn_params: Dict[str, str], query_template: str, start_time: datetime, end_time: datetime, 
+                     fetch_frequency: str = '1H', aggregation_frequency: str = 'daily', 
+                     save_location: Optional[str] = None, file_extension: str = 'pkl') -> None:
     """
-    Retrieves data in specified intervals and optionally saves it. If saving parameters are provided,
-    it saves the data in the specified format at the given location. If not, it returns the data as a DataFrame.
-    Tracks and logs performance statistics and manages checkpoints.
+    Retrieves data in specified intervals and saves it, with options to manage existing data and resume after interruptions.
 
     Parameters:
-    - conn_params: Database connection parameters.
-    - query_template: SQL query string with placeholders for start and end times.
-    - start_time, end_time: Start and end datetime for data retrieval.
-    - fetch_frequency: Granularity for fetching data, e.g., '1H'.
-    - stats: An instance of PerformanceStats for tracking performance metrics.
-    - save_location: Optional directory path where data files will be saved. If omitted, data is returned as a DataFrame.
-    - file_extension: Format for saved data files. Defaults to 'pkl' when saving.
-    - aggregation_frequency: How data files are grouped, e.g., 'daily'.
+    - conn_params: Dictionary with database connection parameters (user, password, host, database, sslmode).
+    - query_template: SQL query string with placeholders for start and end times ('{start}' and '{end}').
+    - start_time: The start datetime for data retrieval.
+    - end_time: The end datetime for data retrieval.
+    - fetch_frequency: Granularity for fetching data, e.g., '1H' for hourly. Determines the size of each fetch interval.
+    - aggregation_frequency: How data files are grouped, e.g., 'daily'. Affects file naming and potentially data structure.
+    - save_location: Directory path where data files will be saved. Defaults to 'data_output' if None.
+    - file_extension: Format for saved data files ('pkl', 'csv', 'xlsx').
 
-    Returns:
-    - A pandas DataFrame of the retrieved data when not saving to files.
+    The function checks for existing data and a checkpoint. If a checkpoint is found, it prompts the user to continue from
+    the checkpoint, overwrite existing data, or exit. Data is fetched in intervals based on 'fetch_frequency' and saved
+    according to 'aggregation_frequency', with each successful fetch updating the checkpoint.
     """
-    stats = PerformanceStats()  # Initialize performance stats tracking
-    combined_data = pd.DataFrame()  # Initialize DataFrame for direct return
-    save_required = save_location is not None and file_extension is not None
 
-    # Set default save location and file extension if saving is required but not specified
-    if save_required:
-        save_location = save_location or 'data_output'
-        file_extension = file_extension or 'pkl'
-        ensure_directory_exists(save_location)
+    # Set the default save location if not provided
+    save_location = save_location or 'data_output'
+    ensure_directory_exists(save_location)
+
+    # Before data retrieval starts, check the checkpoint for the last processed period and its completion status
+    last_processed, last_complete = get_last_processed_and_status(save_location)
+    if last_processed:
+        if not last_complete:
+            logging.info(f"Redoing data retrieval for incomplete period starting at {last_processed}.")
+            start_time = last_processed  # Adjust start_time to include the incomplete period
+        else:
+            logging.info(f"Resuming data retrieval from after the last completed period at {last_processed}.")
+            start_time = max(start_time, last_processed + timedelta(seconds=1))
     
-    # Handle checkpoint and existing data
-    if save_location:
-        last_processed, last_complete = get_last_processed_and_status(save_location)
-        # Logic to handle user choice based on checkpoint status
+        # If the checkpoint exists, prompt the user for how to proceed
+        user_choice = input(f"Data up to {last_processed} already processed. Continue (c), Restart (r), or Exit (e)? ").lower()
+        if user_choice == 'c':
+            # If continuing, adjust start_time to resume from the last processed point
+            logging.info(f"Continuing data retrieval from {last_processed + timedelta(seconds=1)}.")
+            start_time = max(start_time, last_processed + timedelta(seconds=1))
+        elif user_choice == 'r':
+            # If restarting, clear existing data files and checkpoint, then start from the beginning
+            logging.info("Restarting data retrieval. Clearing existing data and starting afresh.")
+            clear_data_files(save_location, file_extension)
+            clear_checkpoint(save_location)
+            # No adjustment needed to start_time, as we're restarting
+            # Start from the original start_time as specified by the user
+        elif user_choice == 'e':
+            logging.info("Exiting as per user choice.")
+            return
+        else:
+            logging.info("No existing data found or checkpoint. Starting new data retrieval.")
 
+
+    # Setup database connection string
     conn_string = f"postgresql://{conn_params['user']}:{conn_params['password']}@{conn_params['host']}/{conn_params['database']}?sslmode={conn_params['sslmode']}"
 
-    # Data retrieval and processing
+    # Data retrieval and saving process
     time_ranges = pd.date_range(start=start_time, end=end_time, freq=fetch_frequency)
     for start in time_ranges:
-        end = min(start + pd.Timedelta(fetch_frequency), end_time)
+        end = min(start + pd.Timedelta(fetch_frequency), end_time)  # Adjust the end to not exceed the overall end_time
         formatted_query = query_template.format(start=start.strftime('%Y-%m-%d %H:%M:%S'), end=end.strftime('%Y-%m-%d %H:%M:%S'))
-        df = fetch_data_from_db(conn_string, formatted_query, stats)
+        df = fetch_data_from_db(conn_string, formatted_query)
 
         if not df.empty:
-            if save_required:
-                filename = generate_filename_based_on_aggregation(start, aggregation_frequency, save_location, file_extension)
-                save_data_with_checkpoint(df, filename, file_extension, start, end, save_location, stats)
-            else:
-                combined_data = pd.concat([combined_data, df], ignore_index=True)
-    
-    # Finalize performance stats and checkpoint updates
-    if save_required:
-        update_checkpoint(save_location, end_time, True, stats)
-    
-    stats.log_stats()
+            filename = generate_filename_based_on_aggregation(start, aggregation_frequency, save_location, file_extension)
+            save_data_with_checkpoint(df, filename, file_extension, start, end, save_location)
+            update_checkpoint(save_location, end)  # Update checkpoint after each successful save
 
-    # Return combined DataFrame if not saving to files
-    return combined_data if not save_required else None
+    # After completing data retrieval and saving, clear the checkpoint
+    update_checkpoint(save_location, end_time)
+    logging.info(f"Data retrieval and processing up to {end_time} completed successfully.")
 
 
-def read_file(file_path: str, stats: PerformanceStats = None) -> pd.DataFrame:
+def read_file(file_path: str, stats: PerformanceStats) -> pd.DataFrame:
     """
-    Reads a data file based on its extension and returns a pandas DataFrame, with performance tracking.
-
-    Supported formats: .pkl, .csv, .xlsx, .xls
-
-    Parameters:
-    - file_path (str): Path to the data file.
-    - stats (PerformanceStats, optional): The performance statistics object to track execution metrics. 
-      If provided, the function's execution time and file I/O metrics will be tracked and updated.
-
-    Returns:
-    - pd.DataFrame: Data loaded into a DataFrame.
+    Reads a data file based on its extension and returns a pandas DataFrame,
+    with performance tracking.
     """
-    start_time = time.time()  # Begin timing for performance tracking
-    
-    try:
-        _, file_extension = os.path.splitext(file_path)
-        if file_extension == '.pkl':
-            df = pd.read_pickle(file_path)
-        elif file_extension == '.csv':
-            df = pd.read_csv(file_path)
-        elif file_extension in ['.xlsx', '.xls']:
-            df = pd.read_excel(file_path)
-        else:
-            raise ValueError(f"Unsupported file type: {file_extension}")
+    read_funcs = {
+        '.pkl': pd.read_pickle,
+        '.csv': pd.read_csv,
+        '.xlsx': pd.read_excel,
+        '.xls': pd.read_excel
+    }
 
-        if stats is not None:
-            # Update stats for file read operation
-            stats.file_read_count += 1
-            stats.bytes_read += os.path.getsize(file_path)  # Track the size of the file read
+    _, file_extension = os.path.splitext(file_path)
+    read_func = read_funcs.get(file_extension)
 
+    if read_func:
+        start_time = time.time()
+        df = read_func(file_path)
+        stats.update(file_path, start_time)
         return df
-    finally:
-        if stats is not None:
-            # Update execution time in stats
-            operation_duration = time.time() - start_time
-            stats.execution_time += operation_duration
+    else:
+        raise ValueError(f"Unsupported file type: {file_extension}")
 
-def load_dataset(path: str, stats: PerformanceStats = None) -> pd.DataFrame:
+
+def load_dataset(path: str, stats: PerformanceStats) -> pd.DataFrame:
     """
-    Loads data from a specified path into a pandas DataFrame, with performance tracking.
+    Loads data from a specified path into a pandas DataFrame with performance tracking.
     The path can be either a directory containing multiple data files or a path to a single data file.
 
     Supported formats for files: .pkl, .csv, .xlsx, .xls
 
     Parameters:
     - path (str): Path to the data file or folder containing data files.
-    - stats (PerformanceStats, optional): The performance statistics object to track execution metrics. 
-      If provided, the function's execution time, number of files read, and data processed will be tracked.
+    - stats (PerformanceStats): Performance stats object to track metrics.
 
     Returns:
     - pd.DataFrame: Data loaded into a DataFrame.
 
     Example Usage:
     - Loading from a single file:
-      >>> load_data(file_path="data_output/data_file.csv", stats=my_stats)
+      >>> load_dataset(file_path="data_output/data_file.csv")
 
     - Loading from a directory:
-      >>> load_data(folder_path="data_output", stats=my_stats)
+      >>> load_dataset(folder_path="data_output")
     """
-    operation_start_time = time.time()  # Begin timing for the entire loading operation
-    data_frames = []
-
     if os.path.isdir(path):
         all_files = glob.glob(os.path.join(path, "*"))
     elif os.path.isfile(path):
@@ -373,18 +332,26 @@ def load_dataset(path: str, stats: PerformanceStats = None) -> pd.DataFrame:
     else:
         raise ValueError(f"The path provided does not exist: {path}")
 
-    for filename in all_files:
+    # Define files or patterns to skip
+    files_to_skip = ["checkpoint.pkl"]
+    
+    data_frames = []
+    for f in all_files:
+        if any(skip_file in f for skip_file in files_to_skip):
+            print(f"Skipping file {f} based on skip criteria.")
+            continue
         try:
-            df = read_file(filename, stats)  # Pass the PerformanceStats object
-            data_frames.append(df)
+            df = read_file(f, stats)
+            if isinstance(df, pd.DataFrame):  # Check if df is a DataFrame
+                data_frames.append(df)
+            else:
+                print(f"Skipping: {f} did not return a DataFrame.")
         except ValueError as e:
-            print(f"Skipping unsupported file type in {filename}: {e}")
+            print(f"Skipping unsupported file type in {f}: {e}")
+        except Exception as e:
+            print(f"Error reading file {f}: {e}")
 
-    loaded_data = pd.concat(data_frames, ignore_index=True) if data_frames else pd.DataFrame()
-    
-    if stats is not None:
-        # Update execution time in stats for the entire load_dataset operation
-        operation_duration = time.time() - operation_start_time
-        stats.execution_time += operation_duration
-    
-    return loaded_data
+    if data_frames:
+        return pd.concat(data_frames, ignore_index=True)
+    else:
+        return pd.DataFrame()

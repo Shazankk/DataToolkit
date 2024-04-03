@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "querypanda"
-version = "0.2.0"
+version = "0.2.2"
 description = "From SQL queries to pandas DataFrames: QueryPanda makes it easy to retrieve, aggregate, and save data from PostgreSQL, enhancing data analysis and machine learning projects."
 authors = [{name = "Shashank Goud", email = "shashaankgoud@gmail.com"}]
 readme = "README.md"

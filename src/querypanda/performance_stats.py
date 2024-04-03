@@ -1,5 +1,6 @@
 import logging
 import time
+import os
 
 class PerformanceStats:
     def __init__(self):
@@ -10,6 +11,11 @@ class PerformanceStats:
         self.bytes_read = 0
         self.bytes_written = 0
         self.execution_time = 0
+    
+    def update(self, file_path, start_time):
+        self.file_read_count += 1
+        self.bytes_read += os.path.getsize(file_path)
+        self.execution_time += time.time() - start_time
 
     def log_stats(self):
         logging.info(f"Database queries: {self.db_query_count}, Rows fetched: {self.db_rows_fetched}")
